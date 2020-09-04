@@ -10,106 +10,155 @@ namespace IslandProblem
     class Program
     {
         /// <summary>
-        /// Contents equals 1 if the position contains land, and 0 if water
-        /// IslandNum represents the island ID essentially
-        /// X and Y are coordinates, position identifiers if you will
+        /// 
         /// </summary>
-        public struct Position
-        {
-            public byte Contents;
-            public int IslandNum;
-            public int X;
-            public int Y;
-        }
+        /// <param name="args"></param>
         static void Main(string[] args)
         {
-            
             do
             {
-                Position[][] map;
+                Map map = new Map();
                 Random rnd = new Random();
                 int tick = Environment.TickCount;
-                int size = 0;
-                string seed = "";
-                int islandNums = 0;
                 Console.WriteLine("Press '0' for test island or '1' for procedurally generated island");
                 if (Console.ReadLine() == "0")
                 {
-                    size = 5;
-                    map = new Position[size][];
-                    for (int i = 0; i < size; i++)
+                    map.Size = 5;
+                    map.GameMap = new Unit[map.Size][];
+                    for (int i = 0; i < map.Size; i++)
                     {
-                        map[i] = new Position[size];
-                        for (int j = 0; j < size; j++)
+                        map.GameMap[i] = new Unit[map.Size];
+                        for (int j = 0; j < map.Size; j++)
                         {
                             if ((i == 0 && j == 0) || (i == 1 && j == 0) || (i == 2 && j == 0) || (i == 2 && j == 2) || (i == 2 && j == 1) || (i == 1 && j == 3) || (i == 1 && j == 4) ||
                                 (i == 2 && j == 4) || (i == 3 && j == 4) || (i == 4 && j == 4) || (i == 4 && j == 2))
-                                map[i][j] = new Position() { Contents = 1, IslandNum = 0, X = i, Y = j };
+                                map.GameMap[i][j] = new Unit(1, null, i, j, Double.MaxValue, Int32.MaxValue, null);
                             else
-                                map[i][j] = new Position() { Contents = 0, IslandNum = 0, X = i, Y = j };
+                                map.GameMap[i][j] = new Unit(0, null, i, j, Double.MaxValue, Int32.MaxValue, null);
                         }
                     }
-                    seed = tick.ToString();
+                    for (int i = 0; i < map.Size; i++)
+                    {
+                        for (int j = 0; j < map.Size; j++)
+                        {
+                            map.GameMap[i][j].Neighbours = new List<Unit>();
+                            if (i > 0)
+                                map.GameMap[i][j].Neighbours.Add(map.GameMap[i - 1][j]);
+                            if (i < map.GameMap.Length - 1)
+                                map.GameMap[i][j].Neighbours.Add(map.GameMap[i + 1][j]);
+                            if (j > 0)
+                                map.GameMap[i][j].Neighbours.Add(map.GameMap[i][j - 1]);
+                            if (j < map.GameMap[i].Length - 1)
+                                map.GameMap[i][j].Neighbours.Add(map.GameMap[i][j + 1]);
+                        }
+                    }
+                    map.Seed = tick.ToString();
+                    map.Islands = FindIslands(map);
+                    AddBridges(map, rnd);
                 }
                 else
                 {
                     Console.WriteLine("How many islands do you want?");
-                    islandNums = int.Parse(Console.ReadLine());
+                    map.InitIslandCount = int.Parse(Console.ReadLine());
                     Console.WriteLine("How large do you want the array?");
-                    size = int.Parse(Console.ReadLine());
+                    map.Size = int.Parse(Console.ReadLine());
                     Console.WriteLine("Seed? (enter \"?\" for random seed)");
-                    seed = Console.ReadLine();
-                    if (seed == "?")
+                    map.Seed = Console.ReadLine();
+                    if (map.Seed == "?")
                     {
                         rnd = new Random();
-                        seed = Environment.TickCount.ToString();
+                        map.Seed = Environment.TickCount.ToString();
                     }
-                    else if (int.TryParse(seed, out int iSeed))
+                    else if (int.TryParse(map.Seed, out int iSeed))
                     {
                         rnd = new Random(iSeed);
                     }
                     else
                         continue;
-                    map = GenerateIsland(islandNums, size, rnd);
+                    map.GameMap = GenerateIsland(map, rnd);
                 }
-
-
-                List<List<Position>> islands = FindIslands(map);
-                AddBridges(map, size, islands, rnd);
-                int bridges = PrintMap(map);
-                Console.WriteLine("Map size: " + size);
-                Console.WriteLine("Number of islands (connected blocks of '██'): " + islands.Count);
-                Console.WriteLine("Number of land blocks ('██'): " + CountLandSpots(map));
+                
+                List<Unit> path = new List<Unit>();
+                    
+                int bridges = PrintMap(map, null, null, path);                                
+                Console.WriteLine("Map size: " + map.Size);
+                Console.Write("Number of islands (connected blocks of '");
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.Write("██");
+                Console.ResetColor();
+                Console.WriteLine("'): " + map.Islands.Count);
+                Console.Write("Number of land blocks ('");
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.Write("██");
+                Console.ResetColor();
+                Console.WriteLine("'): " + CountLandSpots(map));
                 Console.WriteLine("Number of bridges ('¦¦' or '=='): " + bridges);
-                Console.WriteLine("Seed: " + seed);
+                Console.WriteLine("Seed: " + map.Seed);                         
+                Console.WriteLine("Start Index(Row)?");
+                int startX = int.Parse(Console.ReadLine());
+                Console.WriteLine("Start Index(Col)?");
+                int startY = int.Parse(Console.ReadLine());
+                Console.WriteLine("End Index(Row)?");
+                int goalX = int.Parse(Console.ReadLine());
+                Console.WriteLine("End Index(Col)?");
+                int goalY = int.Parse(Console.ReadLine());
+                path = AStarAlgo.Algo(map.GameMap[startX][startY], map.GameMap[goalX][goalY], map);
+                PrintMap(map, map.GameMap[startX][startY], map.GameMap[goalX][goalY], path);
+                Console.WriteLine(path != null ? "Success! Path created." : "Failure");
                 Console.WriteLine("\r\nWould you like to create a new map? (Y/N)");
             } while (Console.ReadLine().ToUpper() == "Y");
             
-        }
+        }        
         /// <summary>
         /// Prints out the map.
         /// Each piece of land is represented as "██", each vertical bridge is represented as "¦¦", each horizontal bridge is represented as "==", and each empy block "  " represents water.
         /// </summary>
-        /// <param name="map"></param>
+        /// <param name="GameMap"></param>
         /// <returns></returns>
-        static int PrintMap(Position[][] map)
+        static int PrintMap(Map map, Unit start, Unit goal, List<Unit> path)
         {
+            Console.BackgroundColor = ConsoleColor.Blue;
             int bridges = 0;
-            for (int i = 0; i < map.Length; i++)
+            for (int i = 0; i < map.GameMap.Length; i++)
             {
-                for (int j = 0; j < map[i].Length; j++)
+                for (int j = 0; j < map.GameMap[i].Length; j++)
                 {
-                    if (map[i][j].Contents == 1)
+                    
+                    if (map.GameMap[i][j].Contents == 1)
+                    {
+                        if (start == map.GameMap[i][j])
+                            Console.ForegroundColor = ConsoleColor.Yellow;
+                        else if (goal == map.GameMap[i][j])
+                            Console.ForegroundColor = ConsoleColor.Red;
+                        else if (path.Contains(map.GameMap[i][j]))
+                            Console.ForegroundColor = ConsoleColor.Magenta;
+                        else
+                            Console.ForegroundColor = ConsoleColor.Green;
                         Console.Write("██");
-                    else if (map[i][j].Contents == 3)
-                    { Console.Write("¦¦"); bridges++; }
-                    else if (map[i][j].Contents == 4)
-                    { Console.Write("=="); bridges++; }
+                    }                    
+                    else if (map.GameMap[i][j].Contents == 3)
+                    {
+                        if (path.Contains(map.GameMap[i][j]))
+                            Console.ForegroundColor = ConsoleColor.Magenta;
+                        else
+                            Console.ForegroundColor = ConsoleColor.DarkYellow;
+                        Console.Write("¦¦"); bridges++;
+                    }
+                    else if (map.GameMap[i][j].Contents == 4)
+                    {
+                        if(path.Contains(map.GameMap[i][j]))
+                            Console.ForegroundColor = ConsoleColor.Magenta;
+                        else
+                            Console.ForegroundColor = ConsoleColor.DarkYellow;
+                        Console.Write("=="); bridges++; 
+                    }
                     else
-                        Console.Write("  ");
+                    { Console.Write("  "); }
+                        
                 }
                 Console.WriteLine();
             }
+            Console.ResetColor();
             return bridges;
         }
         /// <summary>
@@ -129,114 +178,195 @@ namespace IslandProblem
         ///     endfor
         ///     return Islands count
         /// </summary>
-        /// <param name="map"></param>
+        /// <param name="GameMap"></param>
         /// <returns></returns>
-        static List<List<Position>> FindIslands(Position[][] map)
+        static List<Island> FindIslands(Map map)
         {
-            List<List<Position>> islands = new List<List<Position>>();
-            for (int i = 0; i < map.Length; i++)
-                for (int j = 0; j < map.Length; j++)
-                    map[i][j].IslandNum = 0;
+            map.Islands = new List<Island>();
+            for (int i = 0; i < map.GameMap.Length; i++)
+                for (int j = 0; j < map.GameMap.Length; j++)
+                    map.GameMap[i][j].Island = null;
 
-            for (int i = 0; i < map.Length; i++)
+            for (int i = 0; i < map.GameMap.Length; i++)
             {
-                for (int j = 0; j < map[i].Length; j++)
+                for (int j = 0; j < map.GameMap[i].Length; j++)
                 {
-                    if (map[i][j].Contents == 1 && map[i][j].IslandNum == 0)
+                    if (map.GameMap[i][j].Contents == 1 && map.GameMap[i][j].Island == null)
                     {
-                        map[i][j].IslandNum = islands.Count + 1;
-                        List<Position> island = new List<Position> { map[i][j] };
-                        islands.Add(island);                        
-                        for (int k = 0; k < island.Count; k++)
+
+                        Island island = new Island
                         {
-                            if (island[k].X > 0)
-                                if (map[island[k].X - 1][island[k].Y].Contents == 1 && map[island[k].X - 1][island[k].Y].IslandNum != map[i][j].IslandNum)
+                            Id = map.Islands.Count + 1,
+                            LandUnits = new List<Unit>() { map.GameMap[i][j] },
+                            Connections = new List<Island>()
+                        };
+                        map.GameMap[i][j].Island = island;
+                        map.Islands.Add(island);                        
+                        for (int k = 0; k < island.LandUnits.Count; k++)
+                        {
+                            if (island.LandUnits[k].X > 0)
+                                if (map.GameMap[island.LandUnits[k].X - 1][island.LandUnits[k].Y].Contents == 1 && map.GameMap[island.LandUnits[k].X - 1][island.LandUnits[k].Y].Island != map.GameMap[i][j].Island)
                                 {
-                                    map[island[k].X - 1][island[k].Y].IslandNum = map[i][j].IslandNum;
-                                    island.Add(map[island[k].X - 1][island[k].Y]);
+                                    map.GameMap[island.LandUnits[k].X - 1][island.LandUnits[k].Y].Island = island;
+                                    island.LandUnits.Add(map.GameMap[island.LandUnits[k].X - 1][island.LandUnits[k].Y]);
                                 }
-                            if (island[k].X < map.Length-1)
-                                if (map[island[k].X + 1][island[k].Y].Contents == 1 && map[island[k].X + 1][island[k].Y].IslandNum != map[i][j].IslandNum)
+                            if (island.LandUnits[k].X < map.GameMap.Length-1)
+                                if (map.GameMap[island.LandUnits[k].X + 1][island.LandUnits[k].Y].Contents == 1 && map.GameMap[island.LandUnits[k].X + 1][island.LandUnits[k].Y].Island != map.GameMap[i][j].Island)
                                 {
-                                    map[island[k].X + 1][island[k].Y].IslandNum = map[i][j].IslandNum;
-                                    island.Add(map[island[k].X + 1][island[k].Y]);
+                                    map.GameMap[island.LandUnits[k].X + 1][island.LandUnits[k].Y].Island = island;
+                                    island.LandUnits.Add(map.GameMap[island.LandUnits[k].X + 1][island.LandUnits[k].Y]);
                                 }
-                            if (island[k].Y > 0)
-                                if (map[island[k].X][island[k].Y - 1].Contents == 1 && map[island[k].X][island[k].Y - 1].IslandNum != map[i][j].IslandNum)
+                            if (island.LandUnits[k].Y > 0)
+                                if (map.GameMap[island.LandUnits[k].X][island.LandUnits[k].Y - 1].Contents == 1 && map.GameMap[island.LandUnits[k].X][island.LandUnits[k].Y - 1].Island != map.GameMap[i][j].Island)
                                 {
-                                    map[island[k].X][island[k].Y - 1].IslandNum = map[i][j].IslandNum;
-                                    island.Add(map[island[k].X][island[k].Y - 1]);
+                                    map.GameMap[island.LandUnits[k].X][island.LandUnits[k].Y - 1].Island = island;
+                                    island.LandUnits.Add(map.GameMap[island.LandUnits[k].X][island.LandUnits[k].Y - 1]);
                                 }
-                            if (island[k].Y < map[island[k].X].Length - 1)
-                                if (map[island[k].X][island[k].Y + 1].Contents == 1 && map[island[k].X][island[k].Y + 1].IslandNum != map[i][j].IslandNum)
+                            if (island.LandUnits[k].Y < map.GameMap[island.LandUnits[k].X].Length - 1)
+                                if (map.GameMap[island.LandUnits[k].X][island.LandUnits[k].Y + 1].Contents == 1 && map.GameMap[island.LandUnits[k].X][island.LandUnits[k].Y + 1].Island != map.GameMap[i][j].Island)
                                 {
-                                    map[island[k].X][island[k].Y + 1].IslandNum = map[i][j].IslandNum;
-                                    island.Add(map[island[k].X][island[k].Y + 1]);
+                                    map.GameMap[island.LandUnits[k].X][island.LandUnits[k].Y + 1].Island = island;
+                                    island.LandUnits.Add(map.GameMap[island.LandUnits[k].X][island.LandUnits[k].Y + 1]);
                                 }
                         }
                     }
                 }
             }
-            return islands;
+            return map.Islands;
         }
-        static Position[][] GenerateIsland(int numOfIslands, int size, Random rnd)
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="numOfIslands"></param>
+        /// <param name="size"></param>
+        /// <param name="rnd"></param>
+        /// <returns></returns>
+        static Unit[][] GenerateIsland(Map map, Random rnd)
         {
-            List<List<Position>> islands = new List<List<Position>>();
-            Position[][] map = new Position[size][];
-            for (int i = 0; i < size; i++)
+            map.Islands = new List<Island>();
+            map.GameMap = new Unit[map.Size][];
+            for (int i = 0; i < map.Size; i++)
             {
-                map[i] = new Position[size];
-                for (int j = 0; j < size; j++)
+                map.GameMap[i] = new Unit[map.Size];
+                for (int j = 0; j < map.Size; j++)
                 {
-                    map[i][j] = new Position() { Contents = 1, IslandNum = 0, X = i, Y = j };
+                    map.GameMap[i][j] = new Unit(1, null, i, j, Double.MaxValue, Int32.MaxValue, null);
                 }
             }
-            while (islands.Count < numOfIslands && CountLandSpots(map) > numOfIslands)
+            for (int i = 0; i < map.Size; i++)
             {
-                map[rnd.Next(0,size)][rnd.Next(0, size)].Contents = 0;
-                islands = FindIslands(map);
-            }
-            AddBridges(map, size, islands, rnd);
-            return map;
-        }
-        static void AddBridges(Position[][] map, int size, List<List<Position>> islands, Random rnd)
-        {
-            for (int i = 0; i < size; i++)
-            {
-                for (int j = 0; j < size; j++)
+                for (int j = 0; j < map.Size; j++)
                 {
-                    if (map[i][j].Contents == 1)
-                    {
-                        if (i > 1)
-                            if (map[i - 1][j].Contents == 0 && map[i - 2][j].Contents == 1 && map[i - 2][j].IslandNum != map[i][j].IslandNum && rnd.Next(0,5) == 1)
-                                map[i - 1][j].Contents = 3;
-                        if (i < size - 2)
-                            if (map[i + 1][j].Contents == 0 && map[i + 2][j].Contents == 1 && map[i + 2][j].IslandNum != map[i][j].IslandNum && rnd.Next(0, 5) == 1)
-                                map[i + 1][j].Contents = 3;
-                        if (j > 1)
-                            if (map[i][j - 1].Contents == 0 && map[i][j - 2].Contents == 1 && map[i][j - 2].IslandNum != map[i][j].IslandNum && rnd.Next(0, 5) == 1)
-                                map[i][j - 1].Contents = 4;
-                        if (j < size - 2)
-                            if (map[i][j + 1].Contents == 0 && map[i][j + 2].Contents == 1 && map[i][j + 2].IslandNum != map[i][j].IslandNum && rnd.Next(0, 5) == 1)
-                                map[i][j + 1].Contents = 4;
-                    }           
+                    map.GameMap[i][j].Neighbours = new List<Unit>();
+                    if (i > 0)
+                        if (map.GameMap[i - 1][j].Contents != 0) 
+                            map.GameMap[i][j].Neighbours.Add(map.GameMap[i - 1][j]);
+                    if (i < map.GameMap.Length - 1)
+                        if (map.GameMap[i + 1][j].Contents != 0)
+                            map.GameMap[i][j].Neighbours.Add(map.GameMap[i + 1][j]);
+                    if (j > 0)
+                        if (map.GameMap[i][j - 1].Contents != 0)
+                            map.GameMap[i][j].Neighbours.Add(map.GameMap[i][j - 1]);
+                    if (j < map.GameMap[i].Length - 1)
+                        if (map.GameMap[i][j + 1].Contents != 0)
+                            map.GameMap[i][j].Neighbours.Add(map.GameMap[i][j + 1]);
+                }
+            }
+            while (map.Islands.Count < map.InitIslandCount && CountLandSpots(map) > map.InitIslandCount)
+            {
+                map.GameMap[rnd.Next(0,map.Size)][rnd.Next(0, map.Size)].Contents = 0;
+                map.Islands = FindIslands(map);
+            }
+            AddBridges(map, rnd);
+            return map.GameMap;
+        }
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="gameMap"></param>
+        /// <param name="size"></param>
+        /// <param name="rnd"></param>
+        static void AddBridges(Map map, Random rnd)
+        {
+            for (int i = 0; i < map.Islands.Count; i++)
+            {
+                foreach (Unit unit in map.Islands[i].LandUnits)
+                {
+                    if (unit.X > 1 && rnd.Next(0, 3) == 1)
+                        if (map.GameMap[unit.X - 1][unit.Y].Contents == 0 && map.GameMap[unit.X - 2][unit.Y].Contents == 1 
+                            && map.GameMap[unit.X - 2][unit.Y].Island != map.GameMap[unit.X][unit.Y].Island 
+                            && !map.GameMap[unit.X - 2][unit.Y].Island.Connections.Contains(map.Islands[i])
+                            && !CheckSurrounded(map.GameMap[unit.X - 1][unit.Y], map))
+                        {
+                            map.GameMap[unit.X - 1][unit.Y].Contents = 3;
+                            map.GameMap[unit.X - 2][unit.Y].Island.Connections.Add(unit.Island);
+                            unit.Island.Connections.Add(map.GameMap[unit.X - 2][unit.Y].Island);
+                        }
+                    if (unit.X < map.Size - 2 && rnd.Next(0, 3) == 1)
+                        if (map.GameMap[unit.X + 1][unit.Y].Contents == 0 && map.GameMap[unit.X + 2][unit.Y].Contents == 1 
+                            && map.GameMap[unit.X + 2][unit.Y].Island != map.GameMap[unit.X][unit.Y].Island
+                            && !map.GameMap[unit.X + 2][unit.Y].Island.Connections.Contains(map.Islands[i])
+                            && !CheckSurrounded(map.GameMap[unit.X + 1][unit.Y], map))
+                        {
+                            map.GameMap[unit.X + 1][unit.Y].Contents = 3;
+                            map.GameMap[unit.X + 2][unit.Y].Island.Connections.Add(unit.Island);
+                            unit.Island.Connections.Add(map.GameMap[unit.X + 2][unit.Y].Island);
+                        }
+                    if (unit.Y > 1 && rnd.Next(0, 3) == 1)
+                        if (map.GameMap[unit.X][unit.Y - 1].Contents == 0 && map.GameMap[unit.X][unit.Y - 2].Contents == 1 
+                            && map.GameMap[unit.X][unit.Y - 2].Island != map.GameMap[unit.X][unit.Y].Island
+                            && !map.GameMap[unit.X][unit.Y - 2].Island.Connections.Contains(map.Islands[i])
+                            && !CheckSurrounded(map.GameMap[unit.X][unit.Y - 1], map))
+                        {
+                            map.GameMap[unit.X][unit.Y - 1].Contents = 4;
+                            map.GameMap[unit.X][unit.Y - 2].Island.Connections.Add(unit.Island);
+                            unit.Island.Connections.Add(map.GameMap[unit.X][unit.Y - 2].Island);
+                        }
+                    if (unit.Y < map.Size - 2 && rnd.Next(0, 3) == 1)
+                        if (map.GameMap[unit.X][unit.Y + 1].Contents == 0 && map.GameMap[unit.X][unit.Y + 2].Contents == 1 
+                            && map.GameMap[unit.X][unit.Y + 2].Island != map.GameMap[unit.X][unit.Y].Island
+                            && !map.GameMap[unit.X][unit.Y + 2].Island.Connections.Contains(map.Islands[i])
+                            && !CheckSurrounded(map.GameMap[unit.X][unit.Y + 1], map))
+                        {
+                            map.GameMap[unit.X][unit.Y + 1].Contents = 4;
+                            map.GameMap[unit.X][unit.Y + 2].Island.Connections.Add(unit.Island);
+                            unit.Island.Connections.Add(map.GameMap[unit.X][unit.Y + 2].Island);
+                        }
                 }
             }
         }
-        static int CountLandSpots(Position[][] map)
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="unit"></param>
+        /// <param name="map"></param>
+        /// <returns></returns>
+        static bool CheckSurrounded(Unit unit, Map map)
+        {
+            if (unit.X > 0 && unit.X < map.Size - 1 && unit.Y > 0 && unit.Y < map.Size - 1)
+                if (map.GameMap[unit.X - 1][unit.Y].Contents == 1 && map.GameMap[unit.X + 1][unit.Y].Contents == 1
+                    && map.GameMap[unit.X][unit.Y - 1].Contents == 1 && map.GameMap[unit.X][unit.Y + 1].Contents == 1)
+                    return true;
+            return false;
+        }
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="gameMap"></param>
+        /// <returns></returns>
+        static int CountLandSpots(Map map)
         {
             int landSpots = 0;
-            for (int i = 0; i < map.Length; i++)
+            for (int i = 0; i < map.GameMap.Length; i++)
             {
-                for (int j = 0; j < map[i].Length; j++)
+                for (int j = 0; j < map.GameMap[i].Length; j++)
                 {
-                    if (map[i][j].Contents == 1)
+                    if (map.GameMap[i][j].Contents == 1)
                     {
                         landSpots++;
                     }
                 }
             }
-
             return landSpots;
         }
     }
