@@ -5,5 +5,3 @@ C# (currently a console app) .Net Core application that can procedurally generat
 Additionally, an A* pathfinding algorithm was implemented to generate the fastest route from point A to point B.
 
 This is a newline
-
-Master branch advanced.
